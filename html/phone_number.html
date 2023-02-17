@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <script type="text/javascript" src="//libs.glia.com/axon.js"></script>
+  </head>
+
+  <script>
+    function visitorPhoneListener(visitor) {
+        var phoneElementId = 'visitor-phone';
+        var phone = document.getElementById(phoneElementId);
+        if (!phone) {
+            var phone = document.createElement('span');
+            phone.id = phoneElementId;
+            document.body.appendChild(phone);
+        }
+        console.log('visitor ', visitor), 'type ', typeof(visitor), 'phone ', visitor.phone;
+        phone.innerText = visitor.phone;
+    }
+
+    window.getGliaApi({version: 'v1'}).then(glia => {
+      glia.addBufferedEventListener(glia.EVENTS.VISITOR_STATE, visitorPhoneListener);
+    });
+  </script>
+
+  <body>
+    <p>Visitor Phone Number:</p>
+    <p id="visitor-phone"></p>
+  </body>
+</html>

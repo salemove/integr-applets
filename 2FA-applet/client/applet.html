@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2FA</title>
+    <script type="text/javascript" src="//libs.glia.com/axon.js"></script>
+  </head>
+
+  <body style="margin: 0; height: 100vh;">
+    <script type="text/javascript">
+      let currentVisitorData = {};
+      let previousMessagesData = null;
+      const siteId = ""; // here should be you site id
+      const serviceLink = ""; //here should be link to your service
+
+      const handleNewVisitor = (visitorData) => {
+        currentVisitorData = visitorData;
+        getIframe();
+      };
+
+      // code can be present on the verify step
+
+      const getIFrameURL = (code, verified = false) => {
+        const twilioURL = `${serviceLink}/index.html?siteId=${siteId}`;
+
+        if (currentVisitorData.phone && verified) {
+          return `${twilioURL}&tel=${encodeURIComponent(
+            currentVisitorData.phone
+          )}&verified=true`;
+        }
+
+        if (currentVisitorData.phone && code) {
+          return `${twilioURL}&tel=${encodeURIComponent(
+            currentVisitorData.phone
+          )}&code=${code}`;
+        }
+
+        if (currentVisitorData.phone) {
+          return `${twilioURL}&tel=${encodeURIComponent(
+            currentVisitorData.phone
+          )}`;
+        }
+
+        if (code) {
+          return `${twilioURL}&code=${code}`;
+        }
+
+        return twilioURL;
+      };
+
+      const getIframe = (code, verified = false) => {
+        const previousIframe = document.getElementsByTagName("iframe");
+
+        if (previousIframe[0]) previousIframe[0].remove();
+
+        const iframe = document.createElement("iframe");
+
+        iframe.setAttribute("frameborder", "0");
+        iframe.setAttribute("src", getIFrameURL(code, verified));
+        iframe.setAttribute("width", "100%");
+        iframe.setAttribute("height", "100%");
+
+        document.body.append(iframe);
+      };
+
+      const getMessage = (chat, glia, phoneNumber) => {
+        const LAST_MESSAGE = chat[chat.length - 1];
+
+        if (
+          LAST_MESSAGE.sender.type === "visitor" &&
+          !isNaN(Number(LAST_MESSAGE.content)) &&
+          LAST_MESSAGE.content.length === 6
+        ) {
+          currentVisitorData.phone = phoneNumber;
+          getIframe(LAST_MESSAGE.content);
+        }
+
+        glia.removeBufferedEventListener(glia.EVENTS.CHAT_MESSAGES);
+      };
+
+      window.getGliaApi({ version: "v1" }).then((glia) => {
+        glia.addBufferedEventListener(
+          glia.EVENTS.VISITOR_STATE,
+          handleNewVisitor
+        );
+
+        const runGliaAction = (event) => {
+          if (event.data.actionName === "getMessage") {
+            glia.addBufferedEventListener(glia.EVENTS.CHAT_MESSAGES, (chat) =>
+              getMessage(chat, glia, event.data.phoneNumber)
+            );
+          }
+
+          if (event.data.actionName === "sendSystemMessage") {
+            glia.sendChatMessage({
+              content: event.data.messageContent,
+              sender: { type: "visitor" },
+            });
+          }
+
+          if (event.data.actionName === "verifyVisitor") {
+            currentVisitorData.phone = event.data.phoneNumber;
+            getIframe("", true);
+          }
+
+          if (event.data.actionName === "enterPhoneAgain") {
+            currentVisitorData.phone = event.data.phoneNumber;
+            getIframe();
+          }
+        };
+
+        window.addEventListener("message", runGliaAction);
+        glia.removeBufferedEventListener(glia.EVENTS.VISITOR_STATE);
+      });
+    </script>
+  </body>
+</html>

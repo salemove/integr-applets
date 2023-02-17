@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <title>Custom Applet</title>
+  </head>
+  <body>
+    <div class="mt-3 pl-4 row">
+      <img class="d-inline-block" src="https://blog.glia.com/wp-content/uploads/2019/04/Glia512x512-300x300.png" height="56">
+      <h1 class="d-inline-block ml-1">Boiler Plate</h1>
+    </div>
+
+    <div class="container">
+      <div class="mt-4 row">
+        <div class="col-md-4">
+          <div class="card mb-4 p-3 box-shadow">
+            <h3>Leads</h3>
+            <ul>
+              <li id="leads">Data Point 1</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card mb-4 p-3 box-shadow">
+            <h3>Cases</h3>
+            <ul>
+              <li id="cases">Data Point 2</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card mb-4 p-3 box-shadow">
+            <h3>Clients</h3>
+            <ul>
+              <li id="clients">Data Point 3</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Project Name</th>
+          <th scope="col">Company</th>
+          <th scope="col">Country</th>
+          <th scope="col">Price</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="entries">
+        <tr>
+          <th scope="row">1</th>
+          <td>XYZ</td>
+          <td>ABC</td>
+          <td>US</td>
+          <td>$50,000</td>
+          <td>In Contract</td>
+        </tr>
+        <tr>
+          <th scope="row">2</th>
+          <td>UVW</td>
+          <td>DEF</td>
+          <td>UK</td>
+          <td>$125,000</td>
+          <td>Closed Won</td>
+        </tr>
+        <tr>
+          <th scope="row">3</th>
+          <td>RST</td>
+          <td>GHI</td>
+          <td>US</td>
+          <td>$60,000</td>
+          <td>Closed Lost</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+    <script type="text/javascript" src="//libs.glia.com/axon.js"></script>
+
+    <script>
+      function setDataPoints(visitor) {
+        console.log(visitor);
+
+        $('#leads').text(visitor.customAttributes.leads || 'Data Point 1');
+        $('#cases').text(visitor.customAttributes.cases || 'Data Point 2');
+        $('#clients').text(visitor.customAttributes.clients || 'Data Point 3');
+      }
+
+      window.getGliaApi({version: 'v1'}).then(glia => {
+        glia.addBufferedEventListener(glia.EVENTS.VISITOR_STATE, setDataPoints);
+      });
+
+      var tmpVal;
+
+      $("#entries tr").on('dblclick', 'td', function (e) {
+        tmpVal = $(this).text();
+        
+        $(this).text("");
+        $("<input type='text' value='" + tmpVal + "'>").appendTo(this).focus();
+      });
+
+      $("#entries tr").on('focusout', 'td > input', function () {
+          var $this = $(this);
+
+          $this.parent().text($this.val() || tmpVal);
+          $this.remove(); // Don't just hide, remove the element.
+      });
+    </script>
+
+  </body>
+</html>
