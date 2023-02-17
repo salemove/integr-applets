@@ -1,0 +1,93 @@
+<html>
+    <head>
+        <script src="https://libs.glia.com/axon.js"></script>
+        <script>
+            function publishMessage(msg)
+            {
+                console.log(msg);
+                window.getGliaApi({version: 'v1'}).then(glia => {
+                    glia.sendChatMessage({
+                        content: msg
+                    });
+                });
+            }
+            function createButtons() {
+                const data = [
+                    { "id": 1, "title": "Button 1", "message": "This is the message for button 1"},
+                    { "id": 2, "title": "Button 2", "message": "This is the message for button 2"},
+                    { "id": 3, "title": "Button 3", "message": "This is the message for button 3"},
+                    { "id": 4, "title": "Button 4", "message": "This is the message for button 4"},
+                    { "id": 5, "title": "Button 5", "message": "This is the message for button 5"},
+                    { "id": 6, "title": "Button 6", "message": "This is the message for button 6"}
+                ];
+                for (let i = 0; i < data.length; i++) {
+                    const buttonContainer = document.createElement("div");
+                    buttonContainer.classList.add("button-container");
+
+                    const button = document.createElement("div");
+                    button.classList.add("button");
+                    button.innerHTML = data[i].title;
+                    buttonContainer.appendChild(button);
+
+                    const messageTooltip = document.createElement("span");
+                    messageTooltip.innerHTML = data[i].message;
+                    messageTooltip.style.display = "none";
+                    messageTooltip.style.backgroundColor = "black";
+                    messageTooltip.style.color = "white";
+                    messageTooltip.style.position = "absolute";
+                    messageTooltip.style.padding = "5px";
+                    messageTooltip.style.borderRadius = "5px";
+                    messageTooltip.style.fontSize = "14px";
+                    messageTooltip.style.whiteSpace = "pre-line";
+                    button.appendChild(messageTooltip);
+                    
+                    button.addEventListener("mouseenter", function() {
+                        messageTooltip.style.display = "block";
+                    });
+
+                    button.addEventListener("mouseleave", function() {
+                        messageTooltip.style.display = "none";
+                    });
+                    
+                    button.addEventListener("click", function() {
+                        publishMessage(data[i].message);
+                    });
+
+                    document.body.appendChild(button);
+
+                }
+            }
+        </script>
+        <style>
+            .button-container {
+                display: inline-block;
+                position: relative;
+            }
+
+            .button {
+                width: 200px;
+                height: 200px;
+                background-color: #440075;
+                border: none;
+                margin: 10px;
+                float: left;
+                color: aliceblue;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+            }
+
+            .button:hover {
+                background-color: #340159;
+            }
+
+        </style>
+    </head>
+    <body onLoad="createButtons()">
+        <container>
+            
+        </container>
+    </body>
+</html>
