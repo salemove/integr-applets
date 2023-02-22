@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+  <head>
+    <title>custom attributes</title>
+    <script type="text/javascript" src="//libs.glia.com/axon.js"></script>
+  </head>
+
+  <script>
+    function visitorListener(visitorData) {
+        var visitorElementId = 'visitor-data';
+        var visitor = document.getElementById(visitorElementId);
+        if (!visitor) {
+            var visitor = document.createElement('span');
+            visitor.id = visitorElementId;
+            document.body.appendChild(visitor);
+        }
+        console.log('visitor ', JSON.stringify(visitorData));
+        visitor.innerText = JSON.stringify(visitorData, undefined, 2);
+    }
+
+    window.getGliaApi({version: 'v1'}).then(glia => {
+      glia.addBufferedEventListener(glia.EVENTS.VISITOR_STATE, visitorListener);
+    });
+  </script>

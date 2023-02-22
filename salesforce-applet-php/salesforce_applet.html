@@ -1,0 +1,308 @@
+<!--
+	Requirements
+
+	Okay, so basic req’s of the Salesforce Applet:
+	√	- Be able to log into Salesforce from the Applet
+	√	- Pull up a customer record based on a custom attribute of visitor on Glia
+	√	- Be able to modify that record
+	√	- Show synced data between post-engagement Glia data export to Lead record
+    √   - Update ability - click to be able to edit all fields, one save button
+    √    - Add a link out to the SF record to open 
+
+
+
+  - Exports End -
+    √ - Chat transcript as a note "Engagement - MM/DD/YYYY"
+    √ - Any notes from the engagement from the visitor panel - Operator Notes (userproof maybe below)
+    √ - Send over the survey and create a new note "Engagement - MM/DD/YYYY - Operator Notes"
+
+-->
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <script src="https://libs.glia.com/axon.js"></script>
+    <script>
+        // Applet JS SDK usage script
+
+        // Connected App information
+        const clientId = ''; // Change this to your ClientId
+        const redirectURI = 'glia_oauth.php'; // Change this to your own hosted redirectURI
+        const sfObject = "Contact"; // Change this to choose between Lead, Contact, Account, etc.
+
+        // Salesforce organization domain
+        const orgDomain = '';
+        const sfDomain = `https://${orgDomain}.lightning.force.com/lightning/r/${sfObject}`;
+        // Function which requests Lead data from Salesforce given the `externalId` of the visitor
+        // and an access token. Returns a Promise which resolves with JSON object representation of
+        // the Lead
+        function requestLeadData({externalId, accessToken}) {
+            return new Promise((resolve, reject) => {
+            const url = `https://${orgDomain}.my.salesforce.com/services/data/v39.0/sobjects/${sfObject}/${externalId}`;
+            const params = {
+                headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`
+                },
+                method: 'GET'
+            };
+            console.log(params);
+            fetch(url, params)
+                .then(data => {
+                    return data.json();
+                })
+                .then(json => {
+                    resolve(json);
+                })
+                .catch(error => {
+                    reject(error);
+                });
+            });
+        }
+
+      // SF OAuth process to obtain the access token
+      // This function returns a Promise that resolves with the access token
+      // once it has been received
+        function getAccessToken() {
+            const authWindow = window.open(
+                'https://login.salesforce.com/services/oauth2/authorize?' +
+                'response_type=token&' +
+                'display=popup&' +
+                `client_id=${clientId}&` +
+                `redirect_uri=${redirectURI}`,
+                'Salesforce Authorization',
+                'width=500,height=800'
+            );
+
+            return new Promise(resolve => {
+                function resolveWithAccessToken(event) {
+                let message;
+                try {
+                    //console.log(message);
+                    message = JSON.parse(event.data);
+                    // The web application at the `redirectURI` will `postMessage` the
+                    // authentication token
+                    if (message.type === 'AUTH_TOKEN') {
+                        authWindow.close();
+                        const token = message.payload;
+                        window.removeEventListener('message', resolveWithAccessToken);
+                        resolve(token);
+                        sessionStorage.setItem("access_token", token);
+                    }
+                } catch (e) {
+                    console.log(e);
+                    return;
+                }
+                }
+                window.addEventListener('message', resolveWithAccessToken);
+            });
+        }
+
+        // Function that renders the Salesforce Lead data
+        function useSalesforceLeadData(data) {
+            document.getElementById("multi-salutation").value = data.Salutation;
+            document.getElementById("multi-first-name").value = data.FirstName;
+            document.getElementById("multi-last-name").value = data.LastName;
+            document.getElementById("multi-header").innerHTML = data.Name;
+            document.getElementById("multi-street").value = data.MailingStreet;
+            document.getElementById("multi-email").value = data.Email;
+            //document.getElementById("multi-company").value = data.Company;
+            document.getElementById("multi-phone").value = data.Phone;
+            document.getElementById("multi-mobile").value = data.MobilePhone;
+            document.getElementById("multi-city").value = data.MailingCity;
+            document.getElementById("multi-state").value = data.MailingState;
+            document.getElementById("multi-postal-code").value = data.MailingPostalCode;
+            document.getElementById("multi-fax").value = data.Fax;
+            document.getElementById("multi-externalId").value = data.Id;
+            document.getElementById("multi-link").innerHTML = `<a href='${sfDomain}/${data.Id}/view/' title='Salesforce Record' target=_blank>Click to Open Salesforce Page</a>`;
+            console.log("Updated Fields");
+        }
+
+        window.getGliaApi({version: 'v1'}).then(glia => {
+            glia.addBufferedEventListener(
+            glia.EVENTS.VISITOR_STATE,
+            async visitor => {
+                // Use the Glia API to fetch a previously stored access token. The value will resolve
+                // as `null` if no data with key `sf_access_token` has previously been set.
+                const accessTokenFromStorage = await glia.getAxonData({
+                    key: 'sf_access_token'
+                });
+                const externalId = visitor.customAttributes.externalId;
+                // Function that retrieves a new access token, stores the token in applet storage
+                // and fetches Lead data using the token
+                function authenticateAndRequest() {
+                    getAccessToken().then(accessToken => {
+                        glia.storeAxonData({key: 'sf_access_token', data: accessToken});
+                        requestLeadData({externalId, accessToken}).then(
+                            useSalesforceLeadData
+                        );
+                    });
+                }
+                // Check whether the visitor has an `externalId` custom attribute
+                if (externalId) {
+                    // If an access token has been stored by a prior instance of the same applet
+                    // then attempt the request using the token
+                    if (accessTokenFromStorage) {
+                        requestLeadData({
+                            externalId,
+                            accessToken: accessTokenFromStorage
+                        })
+                        .then(useSalesforceLeadData)
+                        .catch(() => {
+                            // If the request failed using the stored access token, retrieve a new
+                            // token by going through the Salesforce OAuth process
+                            authenticateAndRequest();
+                        });
+                        
+                    } else {
+                        // If no token was stored previously, retrieve a new token by going through
+                        // the Salesforce OAuth process
+                        authenticateAndRequest();
+                    }
+                    
+                }
+            });    
+        });
+        // Update SF from Form //
+        $(document).ready(function()
+        {
+            $('#sfForm').on('submit', function(e)
+            {
+                e.preventDefault();
+                //var formData = $("#sfForm").serialize();
+                var access_token = sessionStorage.getItem("access_token");
+                var externalId = $("#multi-externalId").val();
+                let formData = {
+                    "Salutation":$("#multi-salutation").val(),
+                    "FirstName":$("#multi-first-name").val(),
+                    "LastName":$("#multi-last-name").val(),
+                    "Email":$("#multi-email").val(),
+                    //"Company":$("#multi-company").val(),
+                    "Phone":$("#multi-phone").val(),
+                    "MobilePhone":$("#multi-mobile").val(),
+                    "Fax":$("#multi-fax").val(),
+                    "MailingStreet":$("#multi-street").val(),
+                    "MailingCity":$("#multi-city").val(),
+                    "MailingState":$("#multi-state").val(),
+                    "MailingPostalCode":$("#multi-postal-code").val()
+                }
+
+                return new Promise((resolve, reject) => {
+                const url = `https://${orgDomain}.my.salesforce.com/services/data/v39.0/sobjects/${sfObject}/${externalId}`;
+                const params = {
+                    headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${access_token}`
+                    },
+                    method: 'PATCH',
+                    body: JSON.stringify(formData)
+                };
+                fetch(url, params)
+                    .then(data => {
+                        $("#multi-first-name").attr("readonly", true);                        
+                        $("#multi-last-name").attr("readonly", true);                        
+                        $("#multi-email").attr("readonly", true);                        
+                        $("#multi-street").attr("readonly", true);                        
+                        $("#multi-city").attr("readonly", true);                        
+                        $("#multi-postal-code").attr("readonly", true);                        
+                        $("#multi-salutation").attr("readonly", true);                        
+                        $("#multi-state").attr("readonly", true);                        
+                        $("#multi-phone").attr("readonly", true);                        
+                        $("#multi-mobile").attr("readonly", true);                        
+                        $("#multi-fax").attr("readonly", true);
+                        document.getElementById("multi-header").innerHTML = "<span style='color:green'>Record Updated Successfully</span>";                   
+                        return data.json();
+                    })
+                    .then(json => {
+                        //resolve(json);
+                    })
+                    .catch(error => {
+                        //reject(error);
+                    });
+                });
+            });
+        });
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/pure-min.css" integrity="sha384-Uu6IeWbM+gzNVXJcM9XV3SohHtmWE+3VGi496jvgX1jyvDTXfdK+rfZc8C1Aehk5" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/grids-responsive-min.css">
+
+    <style>
+        form {
+            padding-left:10px;
+        }
+        .pure-button-primary {
+            background-color: #7C19DD;
+            color: #FFFFFF;
+        }
+    </style>
+    </head>
+    <body>      
+            <form class="pure-form pure-form-stacked" id="sfForm" name="sfForm" enctype="multipart/form-data" method="post">
+                <input type="hidden" name="externalId" id="multi-externalId" value="" />
+                <input type="hidden" name="accessToken" id="multi-accessToken" value="" />
+                <fieldset>
+                    <legend id="multi-header">{$FirstName} {$LastName}</legend>
+                    <div id="multi-link">{$SalesforceLink}</div>
+                    <div class="pure-g">
+                        <div class="pure-u-1 pure-u-md-1-12">
+                            <label for="multi-salutation">Salutation</label>
+                            <input type="text" id="multi-salutation" name="Salutation" class="pure-u-23-24" readonly="true" value="{$Salutation}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-first-name">First Name</label>
+                            <input type="text" id="multi-first-name" name="FirstName" class="pure-u-23-24" readonly="true" value="{$FirstName}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-last-name">Last Name</label>
+                            <input type="text" id="multi-last-name" name="LastName" class="pure-u-23-24" readonly="true" value="{$LastName}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                        <!-- <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-company">Company</label>
+                            <input type="text" id="multi-company" name="Company" class="pure-u-23-24" readonly="true" value="{$Company}" onclick='$(this).attr("readonly", false);' />
+                        </div> -->
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-email">E-mail</label>
+                            <input type="email" id="multi-email" name="Email" class="pure-u-23-24" readonly="true" value="{$Email}" required="" onclick='$(this).attr("readonly", false);' />
+                        </div>
+
+                    </div>
+
+                    <div class="pure-g">
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-street">Street</label>
+                            <textarea id="multi-street" name="Street" class="pure-u-23-24" readonly="true" onclick='$(this).attr("readonly", false);'>{$Street}</textarea>
+                        </div>
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-city">City</label>
+                            <input type="text" id="multi-city" name="City" class="pure-u-23-24" readonly="true" value="{$City}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-state">State</label>
+                            <input type="text" id="multi-state" name="State" class="pure-u-23-24" readonly="true" value="{$State}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-postal-code">Postal Code</label>
+                            <input type="text" id="multi-postal-code" name="PostalCode" class="pure-u-23-24" readonly="true" value="{$PostalCode}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                    </div>
+
+                    <div class="pure-g">
+                        <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-phone">Phone</label>
+                            <input type="text" id="multi-phone" name="Phone" class="pure-input-1-1" readonly="true" value="{$Phone}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                         <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-mobile">Mobile</label>
+                            <input type="text" id="multi-mobile" name="MobilePhone" class="pure-input-1-1" readonly="true" value="{$MobilePhone}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                         <div class="pure-u-1 pure-u-md-1-5">
+                            <label for="multi-mobile">Fax</label>
+                            <input type="text" id="multi-fax" name="Fax" class="pure-input-1-1" readonly="true" value="{$Fax}" onclick='$(this).attr("readonly", false);' />
+                        </div>
+                   </div>
+                    <button type="submit" class="pure-button pure-button-primary">Update Record</button><span id="#multi-success"></span>
+                </fieldset>
+            </form>
+  </body>
+</html>

@@ -1,0 +1,115 @@
+<html>
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.1/build/pure-min.css" integrity="sha384-oAOxQR6DkCoMliIh8yFnu25d7Eq/PHS21PClpwjOTeU2jRSq11vu66rf90/cZr47" crossorigin="anonymous">
+  <script type="text/javascript" src="//libs.glia.com/axon.js"></script>
+</head>
+<script>
+  const googleApiKey = '';
+  // Example POST method implementation:
+  async function translateTexts(texts, source, target) {
+    let body = {
+      q: [],
+      source: source,
+      target: target
+    };
+    texts.forEach(txt => {
+      body.q.push(txt);
+    });
+    // Default options are marked with *
+    const response = await fetch("https://translation.googleapis.com/language/translate/v2?key=" + googleApiKey, {
+      method: 'POST', // *GET, POST, PUT, DELETE, etc.
+      mode: 'cors', // no-cors, *cors, same-origin
+      cache: 'reload', // *default, no-cache, reload, force-cache, only-if-cached
+      credentials: 'same-origin', // include, *same-origin, omit
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      redirect: 'follow', // manual, *follow, error
+      referrerPolicy: 'origin', // no-referrer, *client
+      body: JSON.stringify(body) // body data type must match "Content-Type" header
+    });
+    console.debug("Sending translation request to Google");
+    return await response.json(); // parses JSON response into native JavaScript objects
+  }
+  //When receiving a number of chat messages
+  function onChatMessages(messages) {
+    console.debug("Received chat messages" + JSON.stringify(messages));
+    let msgTbl = document.getElementById("msgTbl");
+    if (messages && messages.length > 0) {
+      const reversedMessages = messages.reverse();
+      let newBody = document.createElement("tbody");
+      //Add message content to table
+      reversedMessages.forEach(msg => {
+        let newRow = newBody.insertRow(-1);
+        let newOrigin = newRow.insertCell(0);
+        newOrigin.appendChild(document.createTextNode(msg.content));
+      });
+      msgTbl.replaceChild(newBody, msgTbl.tBodies[0]);
+      //Take the content of messages, translate and add to the table
+      translateTexts(reversedMessages.map(m => m.content), "es", "en")
+        .then((translationPayload) => {
+          console.debug("Received translation response: " + JSON.stringify(translationPayload));
+          if (translationPayload.data.translations) {
+            let i = 0;
+            translationPayload.data.translations.forEach(itm => {
+              let row = newBody.rows[i];
+              row.insertCell(1).appendChild(document.createTextNode(itm.translatedText));
+              i++;
+            });
+          }
+        });
+    }
+  }
+  function sendChatMessage(e) {
+    e.preventDefault();
+    let msgInput = document.getElementById("msgInput");
+    if (msgInput.value && msgInput.value.length > 0) {
+      let texts = [msgInput.value];
+      translateTexts(texts, "en", "es")
+        .then((translationPayload) => {
+          console.debug("Received translation response: " + JSON.stringify(translationPayload));
+          if (translationPayload.data.translations && translationPayload.data.translations.length > 0) {
+            window.getGliaApi({
+                version: 'v1'
+              })
+              .then(glia => {
+                glia.sendChatMessage({
+                  content: translationPayload.data.translations[0].translatedText
+                });
+                console.debug("Sent message to chat");
+                msgInput.value = ''
+              });
+          }
+        });
+    }
+  }
+  window.addEventListener("DOMContentLoaded", function(event) {
+    let msgForm = document.getElementById("msgForm");
+    msgForm.addEventListener('submit', sendChatMessage);
+    console.debug("Input listener ready.");
+    window.getGliaApi({
+        version: 'v1'
+      })
+      .then(glia => {
+        glia.addBufferedEventListener(glia.EVENTS.CHAT_MESSAGES, onChatMessages);
+        console.debug("Messages listener ready.");
+      });    
+  });
+</script>
+<body>
+  <table class="pure-table" id="msgTbl">
+    <thead>
+      <tr>
+        <th>Spanish</th>
+        <th>English</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+​
+    <form id="msgForm">
+      <input type="text" id="msgInput">
+    </form>
+</body>
+</html>
