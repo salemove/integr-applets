@@ -28,8 +28,8 @@
 
     </div>
     <script>
+      // listen for chat messages and pass into iframe as query param for NLP and visualization
       function getChatMessages(messages) {
-        console.log(messages)
         messagesDiv = document.createElement('div');
         messagesDiv.setAttribute('id', 'chat-messages');
         document.body.appendChild(messagesDiv);
@@ -46,10 +46,10 @@
       }
       window.getGliaApi({version: 'v1'}).then(glia => {
         glia.addBufferedEventListener(glia.EVENTS.CHAT_MESSAGES, getChatMessages);
-      }
+      })
     </script>
     <div class="container">
-      <iframe class="responsive-iframe" title="spacy" src="https://18.204.13.140:8501/"></iframe>
+      <iframe class="responsive-iframe" title="spacy" src="/"></iframe>
     </div>
   </body>
 </html>
