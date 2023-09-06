@@ -69,7 +69,6 @@ PROFILE_ID: name of profile you've just created
 twilio profiles:use PROFILE_ID
 ```
 
-
 Alternatively you can setup those variables for Twilio-cli locally:
 
 ```
@@ -95,7 +94,7 @@ Save that "SERVICE SID" value you will need it later to update enviromental vari
 
 ## Download and install project
 
-use node v.14 for this project
+use node v.16 for this project
 
 ```
 git clone git@github.com:salemove/integr-applets.git
